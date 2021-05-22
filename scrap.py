@@ -16,7 +16,6 @@ class NewsInfo:
 
 async def GetLatestG1News(session: aiohttp.ClientSession, urls: list[str]) -> list[dict]:
     async def G1News(url: str) -> dict:
-        print("Made request")
         async with session.get(url) as response:
             info = await response.text()
             soup = BeautifulSoup(info, "html.parser")
@@ -31,7 +30,6 @@ async def GetLatestG1News(session: aiohttp.ClientSession, urls: list[str]) -> li
             jsonInfoEnd = script.find(", {lazy")
 
             newsRawData = script[jsonInfoStart:jsonInfoEnd]
-            print("request complete")
 
             return json.loads(newsRawData)
 
