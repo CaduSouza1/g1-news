@@ -26,18 +26,3 @@ from bs4 import BeautifulSoup
 
 response = requests.get("https://g1.globo.com/educacao/")
 response.raise_for_status()
-
-soup = BeautifulSoup(response.text, "html.parser")
-
-news = soup.find("main")
-
-newsGrid = news.find_all("div", recursive=False)[2]
-
-info = newsGrid.find_all("div", recursive=False)[-1]
-script= str(info.div.div.div.script)
-jsonInfoStart = script.find('"config":') - 1
-jsonInfoEnd = script.find(", {lazy")
-
-newsInfo = script[jsonInfoStart:jsonInfoEnd]
-
-print(newsInfo)
