@@ -2,6 +2,7 @@ import dataclasses
 from bs4 import BeautifulSoup
 import aiohttp
 import datetime
+import pytz
 import asyncio
 import json
 
@@ -11,7 +12,6 @@ class NewsInfo:
     title: str
     summary: str
     url: str
-    dateCreated: datetime.time
 
 
 async def GetLatestG1News(session: aiohttp.ClientSession, urls: list[str]) -> list[dict]:
@@ -42,4 +42,24 @@ async def GetLatestG1News(session: aiohttp.ClientSession, urls: list[str]) -> li
     return results
 
 def ParseNews(newsRawData: dict) -> list[NewsInfo]:
-    pass
+    parsedData = []
+
+    for item in newsRawData["items"]:
+        newsTimeCreated = pytz.UTC.localize(
+            datetime.datetime.fromisoformat(item["created"][0:len(item["created"]) - 1])
+        )
+
+        timeElapsed = datetime.datetime.now(pytz.UTC) - newsTimeCreated
+
+        if timeElapsed.days > 1:
+            break
+
+        parsedData.append(
+            NewsInfo(
+                title = item["content"]["title"],
+                summary = item["content"]["summary"],
+                url = item["content"]["url"]
+            )
+        )
+
+    return parsedData
