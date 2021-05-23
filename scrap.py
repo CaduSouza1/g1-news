@@ -45,11 +45,12 @@ def ParseNews(newsRawData: dict) -> list[NewsInfo]:
     parsedData = []
 
     for item in newsRawData["items"]:
-        newsTimeCreated = pytz.UTC.localize(
-            datetime.datetime.fromisoformat(item["created"][0:len(item["created"]) - 1])
-        )
+        date = item["created"].split("T")[0].split("-")
+        newsTime = datetime.date(int(date[0]), int(date[1]), int(date[2]))
 
-        timeElapsed = datetime.datetime.now(pytz.UTC) - newsTimeCreated
+        today = datetime.date.today()
+
+        timeElapsed = today - newsTime
 
         if timeElapsed.days > 1:
             break
