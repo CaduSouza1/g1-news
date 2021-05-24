@@ -53,7 +53,7 @@ def ParseNews(newsRawData: dict) -> list[NewsInfo]:
         timeElapsed = today - newsTime
 
         if timeElapsed.days > 1:
-            break
+            continue
 
         parsedData.append(
             NewsInfo(
