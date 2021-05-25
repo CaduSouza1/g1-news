@@ -1,9 +1,8 @@
+import datetime
 import mail
 import scrap
 
-a = mail.CreateMessage("a", "b", "c", mail.ParseNewsToEmailMessageStr(
-    scrap.NewsInfo("a", "v", "c"),
-    2, 2, 1
-))
+nextMessageTime = (datetime.datetime.now().replace(hour=12, minute=0, second=0) + datetime.timedelta(1)) - datetime.datetime.now().replace(hour=10)
 
-print(a)
+print(datetime.datetime.now().replace(hour=12, minute=0, second=0))
+print(nextMessageTime.total_seconds())

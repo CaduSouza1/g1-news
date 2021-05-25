@@ -11,12 +11,10 @@ import scrap
 import mail
 import smtplib
 import time
+import pytz
+import datetime
 import dotenv
 import aiohttp
-
-# This is ok for now
-def TimeUntil12pm():
-    return 60 * 60 * 12
 
 async def main():
     urls = [
@@ -31,27 +29,26 @@ async def main():
         message = ""
         async with aiohttp.ClientSession() as session:
             print("Preparing message")
-            rawData = await scrap.GetLatestG1News(session, urls)
-            parsedDataSet = (scrap.ParseNews(newsRawData)
-                            for newsRawData in rawData)
 
-            for parsedData in parsedDataSet:
-                for newsInfo in parsedData:
-                    message += mail.ParseNewsToEmailMessageStr(newsInfo, 2, 2, 3)
+            for rawData in await scrap.GetLatestG1News(session, urls):
+                for parsedData in scrap.ParseNews(rawData):
+                    message += mail.ParseNewsToEmailMessageStr(parsedData, 2, 2, 3)
 
             with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
                 emailInfo = dotenv.dotenv_values(".env")
                 emailMessage = mail.CreateMessage(
                     emailInfo["EMAIL"], emailInfo["EMAIL"], "Recent news", message
                 )
-                print(emailMessage)
+                # print(emailMessage)
 
                 smtp.login(emailInfo["EMAIL"], emailInfo["PASSWORD"])
 
                 smtp.send_message(emailMessage)
 
             print("message sent")
-            time.sleep(TimeUntil12pm())
+            nextMessageTime = (datetime.datetime.now().replace(hour=12, minute=0, second=0) + datetime.timedelta(1)) - datetime.datetime.now()
+            print(f"Waiting {nextMessageTime.total_seconds()}s")
+            time.sleep(nextMessageTime.total_seconds())
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(main())
