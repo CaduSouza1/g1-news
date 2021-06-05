@@ -1,11 +1,12 @@
+from datetime import datetime, timedelta
 import asyncio
 import scrap
 import mail
 import smtplib
 import time
-import datetime
 import dotenv
 import aiohttp
+import json
 
 
 async def main():
@@ -20,29 +21,37 @@ async def main():
     while True:
         message = ""
         async with aiohttp.ClientSession() as session:
-            print("Preparing message")
 
             for rawData in await scrap.GetLatestG1News(session, urls):
                 for parsedData in scrap.ParseNews(rawData):
-                    message += mail.ParseNewsToEmailMessageStr(
-                        parsedData, 2, 2, 3)
+                    message += mail.ParseNewsToEmailStr(
+                        parsedData, 0, 0, 2, "templates", "news.html"
+                    )
 
-            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-                emailInfo = dotenv.dotenv_values(".env")
+            with (
+                smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp,
+                open("receivers.json", "r") as jsonFile
+            ):
+                sender = dotenv.dotenv_values(".env")
+                receivers = json.load(jsonFile)
+
                 emailMessage = mail.CreateMessage(
-                    emailInfo["EMAIL"], emailInfo["EMAIL"], "Recent news", message
+                    sender["EMAIL"],
+                    ", ".join(receivers["emails"]),
+                    "Recent news", message
                 )
-                # print(emailMessage)
 
-                smtp.login(emailInfo["EMAIL"], emailInfo["PASSWORD"])
+                smtp.login(
+                    sender["EMAIL"],
+                    sender["PASSWORD"]
+                )
 
                 smtp.send_message(emailMessage)
 
-            print("message sent")
-            nextMessageTime = (datetime.datetime.now().replace(
-                hour=12, minute=0, second=0) + datetime.timedelta(1)) - datetime.datetime.now()
-            print(f"Waiting {nextMessageTime.total_seconds()}s")
+            nextMessageTime = (datetime.now().replace(
+                hour=12, minute=0, second=0) + timedelta(1)) - datetime.now()
             time.sleep(nextMessageTime.total_seconds())
+
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(main())

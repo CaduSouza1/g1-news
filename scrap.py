@@ -14,11 +14,10 @@ class NewsInfo:
     url: str
 
 
-async def GetLatestG1News(session: aiohttp.ClientSession, urls: list[str]) -> list[dict]:
+async def GetLatestNews(session: aiohttp.ClientSession, urls: list[str]) -> list[dict]:
     async def G1News(url: str) -> dict:
         async with session.get(url) as response:
-            info = await response.text()
-            soup = BeautifulSoup(info, "html.parser")
+            soup = BeautifulSoup(await response.text(), "html.parser")
 
             news = soup.find("main")
 
@@ -27,7 +26,7 @@ async def GetLatestG1News(session: aiohttp.ClientSession, urls: list[str]) -> li
             info = newsGrid.find_all("div", recursive=False)[-1]
             script = str(info.div.div.div.script)
             jsonInfoStart = script.find('"config":') - 1
-            jsonInfoEnd = script.find(", {lazy")
+            jsonInfoEnd = script.rfind(", {lazy")
 
             newsRawData = script[jsonInfoStart:jsonInfoEnd]
 
@@ -42,9 +41,7 @@ def ParseNews(newsRawData: dict) -> Generator[NewsInfo, None, None]:
     for item in newsRawData["items"]:
         date = item["created"].split("T")[0].split("-")
         newsTime = datetime.date(int(date[0]), int(date[1]), int(date[2]))
-
         today = datetime.date.today()
-
         timeElapsed = today - newsTime
 
         if timeElapsed.days > 1:
