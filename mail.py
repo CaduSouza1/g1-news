@@ -9,12 +9,12 @@ def ParseNewsToEmailStr(
     summaryBlankLines: int = 1,
     urlBlankLines: int = 1,
     styleFolderPath: str = None,
-    styleFilename: str = None
+    styleFilename: str = None,
 ) -> str:
     if styleFolderPath:
         env = jinja2.Environment(
             loader=jinja2.FileSystemLoader(styleFolderPath),
-            autoescape=jinja2.select_autoescape()
+            autoescape=jinja2.select_autoescape(),
         )
 
         return env.get_template(styleFilename).render(
@@ -23,13 +23,22 @@ def ParseNewsToEmailStr(
             summary=info.summary,
             summaryBlankLines=summaryBlankLines,
             url=info.url,
-            urlBlankLines=urlBlankLines
+            urlBlankLines=urlBlankLines,
         )
 
-    return info.title + "\n" * titleBlankLines + info.summary + "\n" * summaryBlankLines + info.url + "\n" * urlBlankLines
+    return (
+        info.title
+        + "\n" * titleBlankLines
+        + info.summary
+        + "\n" * summaryBlankLines
+        + info.url
+        + "\n" * urlBlankLines
+    )
 
 
-def CreateMessage(From: str, to: str, subject: str, content: str, styled: bool = False) -> EmailMessage:
+def CreateMessage(
+    From: str, to: str, subject: str, content: str, styled: bool = False
+) -> EmailMessage:
     msg = EmailMessage()
     msg["From"] = From
     msg["To"] = to
