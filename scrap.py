@@ -15,18 +15,30 @@ class NewsInfo:
     summary: str
     url: str
 
+    def ToEmailStr(self) -> str:
+        pass
+
+
+@dataclasses.dataclass
+class NewsCollection:
+    categories: dict[str, list[NewsInfo]]  # {"education": [news1, news2, ...]}
+
+    def ToEmailStr(self) -> str:
+        pass
+
+    def Styled(self) -> str:
+        pass
+
 
 class AbstractNewsScrapper(abc.ABC):
-
     @abc.abstractmethod
     async def ScrapNews(self, session: aiohttp.ClientSession, urls: Iterable[str]) -> tuple[dict]:
         pass
 
 
 class AbstractNewsParser(abc.ABC):
-
     @abc.abstractmethod
-    def ParseNews(self, rawdata: dict) -> Generator[NewsInfo, None, None]:
+    def ParseNews(self, rawData: dict) -> Generator[NewsInfo, None, None]:
         pass
 
 
@@ -36,6 +48,7 @@ class G1Scrapper(AbstractNewsScrapper):
             async with session.get(url) as response:
                 soup = BeautifulSoup(await response.text(), "html.parser")
 
+                # for some reason, this is the only way I got this code to work
                 news = soup.find("main")
 
                 newsGrid = news.find_all("div", recursive=False)[2]
@@ -57,7 +70,9 @@ class G1Scrapper(AbstractNewsScrapper):
 class G1Parser(AbstractNewsParser):
     def ParseNews(self, rawData: dict) -> Generator[NewsInfo, None, None]:
         for item in rawData["items"]:
-            date = item["created"].split("T")[0].split("-")
+            date = (
+                item["created"].split("T")[0].split("-")
+            )  # Some of the dates in the file have a "Z" at the end of the string representation of the date.
             newsTime = datetime.date(int(date[0]), int(date[1]), int(date[2]))
             today = datetime.date.today()
             timeElapsed = today - newsTime
@@ -68,5 +83,5 @@ class G1Parser(AbstractNewsParser):
             yield NewsInfo(
                 title=item["content"]["title"],
                 summary=item["content"]["summary"],
-                url=item["content"]["url"],
+                url=item["content"]["url"]
             )
