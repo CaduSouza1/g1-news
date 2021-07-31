@@ -1,4 +1,5 @@
 import asyncio
+import pathlib
 import scrap
 import mail
 import smtplib
@@ -6,26 +7,29 @@ import dotenv
 import aiohttp
 import json
 
+# import yarl
 
 async def main():
-    urls = [
-        "https://g1.globo.com/educacao/",
-        "https://g1.globo.com/ciencia-e-saude/",
-        "https://g1.globo.com/monitor-da-violencia/",
-        "https://g1.globo.com/economia/",
-        "https://g1.globo.com/natureza/"
-    ]
+    categorizedUrls = {
+        "Educação": ["https://g1.globo.com/educacao/"],
+        "Saúde": ["https://g1.globo.com/ciencia-e-saude/"],
+        "Segurança": ["https://g1.globo.com/monitor-da-violencia/"],
+        "Meio ambiente e sustentabilidade": ["https://g1.globo.com/natureza/"],
+        "Economia": ["https://g1.globo.com/economia/"]
+    }
 
-    message = ""
+    nc = scrap.NewsCollection([])
+
     async with aiohttp.ClientSession() as session:
         parser = scrap.G1Parser()
         scrapper = scrap.G1Scrapper()
 
-        for rawData in await scrapper.ScrapNews(session, urls):
-            for parsedData in parser.ParseNews(rawData):
-                message += mail.ParseNewsToEmailStr(
-                    parsedData, 0, 0, 2, "templates", "news.html"
-                )
+        # This approach renders all the asynchronous methods useless, since there's only one url beeing passed to the function. 
+        # I'll try to fix this as soon as possible, but for now I really don't know how without breaking the categorization.
+        for category, urls in categorizedUrls.items():
+            for rawData in await scrapper.ScrapNews(session, urls):
+                for parsedData in parser.ParseNews(category, rawData):
+                    nc.news.append(parsedData)
 
         with (
             smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp,
@@ -36,7 +40,7 @@ async def main():
             emailMessage = mail.CreateMessage(
                 sender["EMAIL"],
                 ", ".join(receivers["emails"]),
-                "Recent news", message
+                "Recent news", nc.ToStyledEmailStr(0, 0, 2, pathlib.Path("templates/news_collection.html"))
             )
 
             smtp.login(
