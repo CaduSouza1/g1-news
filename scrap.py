@@ -12,21 +12,6 @@ import jinja2
 import yarl
 from bs4 import BeautifulSoup
 
-# import enum
-
-
-# class Category(enum.IntEnum):
-#     EDUCATION = enum.auto()
-#     HEALTH = enum.auto()
-
-#     def ToStr(self) -> str:
-#         translationTable = {
-#             self.EDUCATION: "Education",
-#             self.HEALTH: "Health"
-#         }
-
-#         return translationTable[self.value]
-
 
 @dataclasses.dataclass
 class NewsInfo:
@@ -54,11 +39,9 @@ class NewsInfo:
             )
             .get_template(styleFilepath.name)
             .render(
-                title=self.title,
+                news=self,
                 titleBlankLines=titleBlankLines,
-                summary=self.summary,
                 summaryBlankLines=summaryBlankLines,
-                url=self.url,
                 urlBlankLines=urlBlankLines,
             )
         )
@@ -68,9 +51,10 @@ class NewsInfo:
 class NewsCollection:
     news: list[NewsInfo]
 
-    # def ToEmailStr(self, categorize: bool) -> str:
-    #     if categorize:
-    #         categorizedNews = self.Categorize()
+    def ToEmailStr(self, titleBlankLines: int, summaryBlankLines: int, urlBlankLines: int) -> str:
+        return "".join(
+            map(lambda newsItem: newsItem.ToEmailStr(titleBlankLines, summaryBlankLines, urlBlankLines), self.news)
+        )
 
     def ToStyledEmailStr(
         self, titleBlankLines: int, summaryBlankLines: int, urlBlankLines: int, styleFilepath: pathlib.Path
@@ -160,15 +144,18 @@ class G1Scrapper(AbstractNewsScrapper):
 class G1Parser(AbstractNewsParser):
     def ParseNews(self, category: str, rawData: dict) -> Generator[NewsInfo, None, None]:
         for item in rawData["items"]:
-            date = (
-                item["created"].split("T")[0].split("-")
-            )  # Some of the dates in the file have a "Z" at the end of the string representation of the date.
+            # Some of the dates in the file have a "Z" at the end
+            # of the string representation of the date and some don't,
+            # so I decided that it would be better to do this way.
+            date = item["created"].split("T")[0].split("-")
             newsTime = datetime.date(int(date[0]), int(date[1]), int(date[2]))
             today = datetime.date.today()
             timeElapsed = today - newsTime
 
-            # if timeElapsed.days > 1:
-            #     continue
+            # for now, I'll let this be a hardcoded date, but in the near future
+            # I'll change this to a function parameter.
+            if timeElapsed.days > 1:
+                continue
 
             yield NewsInfo(
                 title=item["content"]["title"],
