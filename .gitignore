@@ -2,3 +2,5 @@ venv
 .env
 db.py
 out.log
+__pycache__
+.vscode
