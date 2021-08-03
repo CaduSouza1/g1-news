@@ -47,9 +47,11 @@ class NewsInfo:
         )
 
 
+# I don't know what to name this class, so this will stay like this for a while
+# Should these dataclasses be frozen?
 @dataclasses.dataclass
 class NewsCollection:
-    news: list[NewsInfo]
+    news: defaultdict[str, list[NewsInfo]] = dataclasses.field(default_factory=lambda: defaultdict(list))
 
     def ToEmailStr(self, titleBlankLines: int, summaryBlankLines: int, urlBlankLines: int) -> str:
         return "".join(
@@ -75,6 +77,8 @@ class NewsCollection:
             loader=jinja2.FileSystemLoader(styleFilepath.parent), autoescape=jinja2.select_autoescape()
         ).get_template(styleFilepath.name)
 
+        # I have a bad felling about this code
+        # and I also have a bad felling about the templates
         return "".join(
             map(
                 lambda newsCollection: template.render(
@@ -84,16 +88,12 @@ class NewsCollection:
                     summaryBlankLines=summaryBlankLines,
                     urlBlankLines=urlBlankLines,
                 ),
-                self.Categorize().items(),
+                self.news.items(),
             )
         )
 
-    def Categorize(self) -> dict[str, list[NewsInfo]]:
-        categories = defaultdict(list)
-        for newsItem in self.news:
-            categories[newsItem.category].append(newsItem)
-
-        return categories
+    def AddNew(self, news: NewsInfo):
+        self.news[news.category].append(news)
 
 
 class AbstractNewsScrapper(abc.ABC):
