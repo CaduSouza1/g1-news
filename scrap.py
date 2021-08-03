@@ -9,15 +9,15 @@ from typing import Generator, Iterable
 
 import aiohttp
 import jinja2
-import yarl
 from bs4 import BeautifulSoup
+from lxml import html
 
 
 @dataclasses.dataclass
 class NewsInfo:
     title: str
     summary: str
-    url: yarl.URL
+    url: str
     category: str
 
     def ToEmailStr(self, titleBlankLines: int, summaryBlankLines: int, urlBlankLines: int) -> str:
@@ -102,7 +102,7 @@ class AbstractNewsScrapper(abc.ABC):
         pass
 
     @abc.abstractmethod
-    async def ScrapNews(self, session: aiohttp.ClientSession, urls: Iterable[yarl.URL]) -> tuple[dict]:
+    async def ScrapNews(self, session: aiohttp.ClientSession, urls: Iterable[str]) -> tuple[dict]:
         pass
 
 
@@ -119,22 +119,13 @@ class G1Scrapper(AbstractNewsScrapper):
 
         return info[infoStart:infoEnd]
 
-    async def ScrapNews(self, session: aiohttp.ClientSession, urls: Iterable[yarl.URL]) -> tuple[dict]:
-        async def G1News(url: yarl.URL) -> dict:
-            print(f"Requesting {url}")
+    async def ScrapNews(self, session: aiohttp.ClientSession, urls: Iterable[str]) -> tuple[dict]:
+        async def G1News(url: str) -> dict:
             async with session.get(url) as response:
-                soup = BeautifulSoup(await response.text(), "html.parser")
+                soup = BeautifulSoup(await response.text(), "lxml")
+                script = soup.select("#bstn-fd-launcher > script:nth-child(3)")[0]
 
-                # for some reason, this is the only way I got this code to work
-                news = soup.find("main")
-
-                newsGrid = news.find_all("div", recursive=False)[2]
-
-                info = newsGrid.find_all("div", recursive=False)[-1]
-                script = str(info.div.div.div.script)
-
-                print(f"Request finished")
-                return json.loads(self.FilterInfo(script))
+                return json.loads(self.FilterInfo(str(script)))
 
         tasks = (asyncio.create_task(G1News(url)) for url in urls)
 
