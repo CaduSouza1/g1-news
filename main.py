@@ -18,18 +18,18 @@ async def main():
         "Economia": ["https://g1.globo.com/economia/"]
     }
 
-    nc = scrap.NewsCollection([])
+    nc = scrap.NewsCollection()
 
     async with aiohttp.ClientSession() as session:
-        parser = scrap.G1Parser()
         scrapper = scrap.G1Scrapper()
+        parser = scrap.G1Parser()
 
         # This approach renders all the asynchronous methods useless, since there's only one url beeing passed to the function. 
         # I'll try to fix this as soon as possible, but for now I really don't know how without breaking the categorization.
         for category, urls in categorizedUrls.items():
             for rawData in await scrapper.ScrapNews(session, urls):
                 for parsedData in parser.ParseNews(category, rawData):
-                    nc.news.append(parsedData)
+                    nc.AddNew(parsedData)
 
         with (
             smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp,
@@ -40,7 +40,7 @@ async def main():
             emailMessage = mail.CreateMessage(
                 sender["EMAIL"],
                 ", ".join(receivers["emails"]),
-                "Recent news", nc.ToStyledEmailStr(0, 0, 2, pathlib.Path("templates/news_collection.html"))
+                "Recent news", nc.ToStyledEmailStr(0, 0, 4, pathlib.Path("templates/news.html"))
             )
 
             smtp.login(

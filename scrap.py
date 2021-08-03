@@ -154,8 +154,8 @@ class G1Parser(AbstractNewsParser):
 
             # for now, I'll let this be a hardcoded date, but in the near future
             # I'll change this to a function parameter.
-            # if timeElapsed.days > 1:
-            #     continue
+            if timeElapsed.days > 1:
+                continue
 
             yield NewsInfo(
                 title=item["content"]["title"],
