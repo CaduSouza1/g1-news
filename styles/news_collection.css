@@ -1,0 +1,16 @@
+body {
+    font-family: 'Courier New', Courier, monospace;
+    text-align: justify;
+}
+
+/* 
+I'm considering adding some colors to the newsCategory div class, but I didn't found a good color.
+So for now, this will stay as it is 
+*/
+h2.newsCategory {
+    text-align: center;
+}
+
+h3.newsTitle {
+    text-align: center;
+}
