@@ -1,28 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
-
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>News Collection Template</title>
+</head>
 <body>
-    <h2>{{category}}</h2>
+    <div class="newsCategory">
+        <h2>{{category}}</h2>
+    </div>
     <br>
     
-    {% for news in newsCollection %}
-        <h3>{{news.title}}</h3>
-        {% for _ in range(0, titleBlankLines) %}
-            <br>
-        {% endfor %}
-
-        <p>{{news.summary}}</p>
-        {% for _ in range(0, summaryBlankLines) %}
-            <br>
+    <div class="newsItems">
+        
+        {% for news in newsCollection %}
+            <h3 class="newsTitle">{{news.title}}</h3>
+    
+            {% for _ in range(0, titleBlankLines) %}
+                <br>
+            {% endfor %}
+    
+            <p class="newsSummary">{{news.summary}}</p>
+    
+            {% for _ in range(0, summaryBlankLines) %}
+                <br>
+            {% endfor %}
+        
+            <a class="newsUrl" href="{{news.url}}"><small>{{news.title}}</small></a>
+    
+            {% for _ in range(0, urlBlankLines) %}
+                <br>
+            {% endfor %}
         {% endfor %}
         
-        <a href="{{news.url}}"><small>{{news.title}}</small></a>
-        {% for _ in range(0, urlBlankLines) %}
-            <br>
-        {% endfor %}  
-    {% endfor %}
+    </div>
     
-
 </body>
-
 </html>
