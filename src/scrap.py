@@ -1,10 +1,10 @@
 import abc
 import asyncio
-from collections import defaultdict
 import dataclasses
 import datetime
 import json
 import pathlib
+from collections import defaultdict
 from typing import Generator, Iterable
 
 import aiohttp
@@ -75,6 +75,7 @@ class NewsCollection:
         template = jinja2.Environment(
             loader=jinja2.FileSystemLoader(styleFilepath.parent), autoescape=jinja2.select_autoescape()
         ).get_template(styleFilepath.name)
+    
 
         # I have a bad felling about this code
         # and I also have a bad felling about the templates
@@ -101,7 +102,7 @@ class AbstractNewsScrapper(abc.ABC):
         pass
 
     @abc.abstractmethod
-    async def ScrapNews(self, session: aiohttp.ClientSession, urls: Iterable[str]) -> tuple[dict]:
+    async def ScrapNews(self, session: aiohttp.ClientSession, urls: Iterable[str]) -> tuple[str, dict]:
         pass
 
 
@@ -118,13 +119,13 @@ class G1Scrapper(AbstractNewsScrapper):
 
         return info[infoStart:infoEnd]
 
-    async def ScrapNews(self, session: aiohttp.ClientSession, urls: Iterable[str]) -> tuple[dict]:
-        async def G1News(url: str) -> dict:
+    async def ScrapNews(self, session: aiohttp.ClientSession, urls: Iterable[str]) -> tuple[tuple[str, dict]]:
+        async def G1News(url: str) -> tuple[str, dict]:
             async with session.get(url) as response:
                 soup = BeautifulSoup(await response.text(), "lxml")
                 script = soup.select("#bstn-fd-launcher > script:nth-child(3)")[0]
 
-                return json.loads(self.FilterInfo(str(script)))
+                return (url, json.loads(self.FilterInfo(str(script))))
 
         tasks = (asyncio.create_task(G1News(url)) for url in urls)
 
