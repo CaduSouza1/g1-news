@@ -78,8 +78,14 @@ async def scrap_news(session: aiohttp.ClientSession, urls: Iterable[str]) -> tup
         async with session.get(url) as response:
             soup = BeautifulSoup(await response.text(), "lxml")
             script = soup.select("#bstn-fd-launcher > script:nth-child(3)")[0]
+            b = filter_info(str(script))
+            a = json.loads(b)
+            with open("f.json", "w") as f:
+                f.write(b)
 
-            return (url, json.loads(filter_info(str(script))))
+            with open("g.json", "w") as g:
+                g.write(str(a["config"]))
+            return (url, a)
 
     tasks = (asyncio.create_task(G1News(url)) for url in urls)
 
@@ -87,6 +93,8 @@ async def scrap_news(session: aiohttp.ClientSession, urls: Iterable[str]) -> tup
 
 
 def parse_news(category: str, raw_data: dict, max_days_elapsed: int) -> Generator[NewsInfo, None, None]:
+    with open("q.json", "w") as f:
+        f.write(raw_data.__str__())
     for item in raw_data["items"]:
         # Some of the dates in the file have a "Z" at the end
         # of the string representation of the date and some don't,
@@ -98,9 +106,15 @@ def parse_news(category: str, raw_data: dict, max_days_elapsed: int) -> Generato
         if time_elapsed.days > max_days_elapsed:
             continue
 
-        yield NewsInfo(
-            title=item["content"]["title"],
-            summary=item["content"]["summary"],
-            url=item["content"]["url"],
-            category=category,
-        )
+        print(item["content"], file=open("a.json", "w"))
+
+        # for some reason, there is ONE. ONE entry on the input data that does not have a summary key.
+        try:
+            yield NewsInfo(
+                title=item["content"]["title"],
+                summary=item["content"]["summary"],
+                url=item["content"]["url"],
+                category=category,
+            )
+        except KeyError:
+            continue
