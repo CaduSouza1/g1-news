@@ -1,10 +1,9 @@
-import abc
 import asyncio
-import dataclasses
 import datetime
 import json
 import pathlib
 from collections import defaultdict
+from dataclasses import dataclass, field
 from typing import Generator, Iterable
 
 import aiohttp
@@ -12,145 +11,96 @@ import jinja2
 from bs4 import BeautifulSoup
 
 
-@dataclasses.dataclass
+@dataclass
 class NewsInfo:
     title: str
     summary: str
     url: str
     category: str
 
-    def ToEmailStr(self, titleBlankLines: int, summaryBlankLines: int, urlBlankLines: int) -> str:
-        return (
-            self.title
-            + "\n" * titleBlankLines
-            + self.summary
-            + "\n" * summaryBlankLines
-            + self.url
-            + "\n" * urlBlankLines
-        )
-
-    def ToStyledEmailStr(
-        self, titleBlankLines: int, summaryBlankLines: int, urlBlankLines: int, styleFilepath: pathlib.Path
-    ) -> str:
-        return (
-            jinja2.Environment(
-                loader=jinja2.FileSystemLoader(styleFilepath.parent), autoescape=jinja2.select_autoescape()
-            )
-            .get_template(styleFilepath.name)
-            .render(
-                news=self,
-                titleBlankLines=titleBlankLines,
-                summaryBlankLines=summaryBlankLines,
-                urlBlankLines=urlBlankLines,
-            )
-        )
-
 
 # I don't know what to name this class, so this will stay like this for a while
 # Should these dataclasses be frozen?
-@dataclasses.dataclass
+@dataclass
 class NewsCollection:
-    news: defaultdict[str, list[NewsInfo]] = dataclasses.field(default_factory=lambda: defaultdict(list))
+    news: defaultdict[str, list[NewsInfo]] = field(default_factory=lambda: defaultdict(list))
 
-    def ToEmailStr(self, titleBlankLines: int, summaryBlankLines: int, urlBlankLines: int) -> str:
-        return "".join(
-            map(lambda newsItem: newsItem.ToEmailStr(titleBlankLines, summaryBlankLines, urlBlankLines), self.news)
-        )
-
-    def ToStyledEmailStr(
-        self, titleBlankLines: int, summaryBlankLines: int, urlBlankLines: int, styleFilepath: pathlib.Path
+    def to_styled_email_str(
+        self,
+        title_blank_lines: int,
+        summary_blank_lines: int,
+        url_blank_lines: int,
+        style_filepath: pathlib.Path,
     ) -> str:
-        """Creates an html string based on a template defined at `styleFilepath`
+        """Creates an html string based on a template defined at `style_filepath`
 
         Args:
-            titleBlankLines (int): Blank lines added at the end of the title
-            summaryBlankLines (int): Blank lines added at the end of the summary
-            urlBlankLines (int): Blank lines at the end of the url
-            styleFilepath (pathlib.Path): Path to the file containing the template
+            title_blank_lines (int): Blank lines added at the end of the title
+            summary_blank_lines (int): Blank lines added at the end of the summary
+            url_blank_lines (int): Blank lines at the end of the url
+            style_filepath (pathlib.Path): Path to the file containing the template
 
         Returns:
             str: Html string representation of the news objects in this collection
         """
 
         template = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(styleFilepath.parent), autoescape=jinja2.select_autoescape()
-        ).get_template(styleFilepath.name)
-    
+            loader=jinja2.FileSystemLoader(style_filepath.parent),
+            autoescape=jinja2.select_autoescape(),
+        ).get_template(style_filepath.name)
 
-        # I have a bad felling about this code
-        # and I also have a bad felling about the templates
         return "".join(
             map(
-                lambda newsCollection: template.render(
-                    category=newsCollection[0],
-                    newsCollection=newsCollection[1],
-                    titleBlankLines=titleBlankLines,
-                    summaryBlankLines=summaryBlankLines,
-                    urlBlankLines=urlBlankLines,
+                lambda news_collection: template.render(
+                    category=news_collection[0],
+                    news_collection=news_collection[1],
+                    title_blank_lines=title_blank_lines,
+                    summary_blank_lines=summary_blank_lines,
+                    url_blank_lines=url_blank_lines,
                 ),
                 self.news.items(),
             )
         )
 
-    def AddNew(self, news: NewsInfo):
+    def add(self, news: NewsInfo):
         self.news[news.category].append(news)
 
 
-class AbstractNewsScrapper(abc.ABC):
-    @abc.abstractmethod
-    def FilterInfo(self, info: str) -> str:
-        pass
+def filter_info(info: str) -> str:
+    info_start = info.find('"config":') - 1
+    info_end = info.rfind(", {lazy")
 
-    @abc.abstractmethod
-    async def ScrapNews(self, session: aiohttp.ClientSession, urls: Iterable[str]) -> tuple[str, dict]:
-        pass
+    return info[info_start:info_end]
 
 
-class AbstractNewsParser(abc.ABC):
-    @abc.abstractmethod
-    def ParseNews(self, rawData: dict) -> Generator[NewsInfo, None, None]:
-        pass
+async def scrap_news(session: aiohttp.ClientSession, urls: Iterable[str]) -> tuple[tuple[str, dict]]:
+    async def G1News(url: str) -> tuple[str, dict]:
+        async with session.get(url) as response:
+            soup = BeautifulSoup(await response.text(), "lxml")
+            script = soup.select("#bstn-fd-launcher > script:nth-child(3)")[0]
+
+            return (url, json.loads(filter_info(str(script))))
+
+    tasks = (asyncio.create_task(G1News(url)) for url in urls)
+
+    return await asyncio.gather(*tasks)
 
 
-class G1Scrapper(AbstractNewsScrapper):
-    def FilterInfo(self, info: str) -> str:
-        infoStart = info.find('"config":') - 1
-        infoEnd = info.rfind(", {lazy")
+def parse_news(category: str, raw_data: dict, max_days_elapsed: int) -> Generator[NewsInfo, None, None]:
+    for item in raw_data["items"]:
+        # Some of the dates in the file have a "Z" at the end
+        # of the string representation of the date and some don't,
+        # so I decided that it would be better to do this way.
+        date = item["created"].split("T")[0].split("-")
+        news_time = datetime.date(int(date[0]), int(date[1]), int(date[2]))
+        time_elapsed = datetime.date.today() - news_time
 
-        return info[infoStart:infoEnd]
+        if time_elapsed.days > max_days_elapsed:
+            continue
 
-    async def ScrapNews(self, session: aiohttp.ClientSession, urls: Iterable[str]) -> tuple[tuple[str, dict]]:
-        async def G1News(url: str) -> tuple[str, dict]:
-            async with session.get(url) as response:
-                soup = BeautifulSoup(await response.text(), "lxml")
-                script = soup.select("#bstn-fd-launcher > script:nth-child(3)")[0]
-
-                return (url, json.loads(self.FilterInfo(str(script))))
-
-        tasks = (asyncio.create_task(G1News(url)) for url in urls)
-
-        return await asyncio.gather(*tasks)
-
-
-class G1Parser(AbstractNewsParser):
-    def ParseNews(self, category: str, rawData: dict) -> Generator[NewsInfo, None, None]:
-        for item in rawData["items"]:
-            # Some of the dates in the file have a "Z" at the end
-            # of the string representation of the date and some don't,
-            # so I decided that it would be better to do this way.
-            date = item["created"].split("T")[0].split("-")
-            newsTime = datetime.date(int(date[0]), int(date[1]), int(date[2]))
-            today = datetime.date.today()
-            timeElapsed = today - newsTime
-
-            # for now, I'll let this be a hardcoded date, but in the near future
-            # I'll change this to a function parameter.
-            if timeElapsed.days > 1:
-                continue
-
-            yield NewsInfo(
-                title=item["content"]["title"],
-                summary=item["content"]["summary"],
-                url=item["content"]["url"],
-                category=category,
-            )
+        yield NewsInfo(
+            title=item["content"]["title"],
+            summary=item["content"]["summary"],
+            url=item["content"]["url"],
+            category=category,
+        )
