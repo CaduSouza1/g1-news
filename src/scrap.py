@@ -106,8 +106,6 @@ def parse_news(category: str, raw_data: dict, max_days_elapsed: int) -> Generato
         if time_elapsed.days > max_days_elapsed:
             continue
 
-        print(item["content"], file=open("a.json", "w"))
-
         # for some reason, there is ONE. ONE entry on the input data that does not have a summary key.
         try:
             yield NewsInfo(
