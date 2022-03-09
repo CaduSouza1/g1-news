@@ -1,53 +1,46 @@
 import asyncio
 import pathlib
+import smtplib
+import sys
+from email.message import EmailMessage
+
+import aiohttp
 
 import scrap
-import smtplib
-import dotenv
-import aiohttp
-import json
-
-from email.message import EmailMessage
 
 
 async def main():
-    categorizedUrls = {
+    categorized_urls = {
         "https://g1.globo.com/educacao/": "Educação",
         "https://g1.globo.com/ciencia-e-saude/": "Saúde",
         "https://g1.globo.com/monitor-da-violencia/": "Segurança",
         "https://g1.globo.com/natureza/": "Meio ambiente e sustentabilidade",
-        "https://g1.globo.com/economia/": "Economia"
+        "https://g1.globo.com/economia/": "Economia",
     }
 
     nc = scrap.NewsCollection()
 
     async with aiohttp.ClientSession() as session:
-        scrapper = scrap.G1Scrapper()
-        parser = scrap.G1Parser()
+        for url, raw_data in await scrap.scrap_news(session=session, urls=categorized_urls.keys()):
+            for parsed_data in scrap.parse_news(category=categorized_urls[url], raw_data=raw_data, max_days_elapsed=1):
+                nc.add(parsed_data)
 
-        for url, rawData in await scrapper.ScrapNews(session, categorizedUrls.keys()):
-            for parsedData in parser.ParseNews(categorizedUrls[url], rawData):
-                nc.AddNew(parsedData)
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            email = sys.argv[1]
+            password = sys.argv[2]
 
-        with (
-            smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp,
-            open("receivers.json", "r") as jsonFile
-        ):
-            receivers = json.load(jsonFile)
-            sender = dotenv.dotenv_values(".env")
-            
             message = EmailMessage()
-            message["From"] = sender["EMAIL"]
-            message["To"] = receivers["emails"]
+            message["From"] = email
+            message["To"] = email
             message["Subject"] = "Recent News"
-            message.set_content(nc.ToStyledEmailStr(0, 0, 4, pathlib.Path("templates/news.html")), subtype="html")
-
-            smtp.login(
-                sender["EMAIL"],
-                sender["PASSWORD"]
+            message.set_content(
+                nc.to_styled_email_str(0, 0, 4, pathlib.Path("templates/news.html")),
+                subtype="html",
             )
 
+            smtp.login(email, password)
             smtp.send_message(message)
 
 
-asyncio.get_event_loop().run_until_complete(main())
+if __name__ == "__main__":
+    asyncio.run(main())
