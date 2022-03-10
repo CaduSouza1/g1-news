@@ -78,14 +78,8 @@ async def scrap_news(session: aiohttp.ClientSession, urls: Iterable[str]) -> tup
         async with session.get(url) as response:
             soup = BeautifulSoup(await response.text(), "lxml")
             script = soup.select("#bstn-fd-launcher > script:nth-child(3)")[0]
-            b = filter_info(str(script))
-            a = json.loads(b)
-            with open("f.json", "w") as f:
-                f.write(b)
 
-            with open("g.json", "w") as g:
-                g.write(str(a["config"]))
-            return (url, a)
+            return (url, json.loads(filter_info(str(script))))
 
     tasks = (asyncio.create_task(G1News(url)) for url in urls)
 
@@ -93,8 +87,6 @@ async def scrap_news(session: aiohttp.ClientSession, urls: Iterable[str]) -> tup
 
 
 def parse_news(category: str, raw_data: dict, max_days_elapsed: int) -> Generator[NewsInfo, None, None]:
-    with open("q.json", "w") as f:
-        f.write(raw_data.__str__())
     for item in raw_data["items"]:
         # Some of the dates in the file have a "Z" at the end
         # of the string representation of the date and some don't,
